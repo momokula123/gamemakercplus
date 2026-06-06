@@ -1,0 +1,10 @@
+build/
+*.exe
+*.obj
+*.bak
+fix_*.py
+fix_*.patch
+*.patch
+*.log
+.DS_Store
+Thumbs.db
