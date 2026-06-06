@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>GameMaker C++ 网页控制器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0f; --panel: #12121a; --card: #1a1a28;
+  --border: #2a2a3e; --text: #e0e0f0; --dim: #6a6a8e;
+  --accent: #4a7cff; --accent2: #6a5acd; --green: #2dd4a0;
+  --red: #ff4466; --yellow: #fbbf24;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; overflow: hidden; }
+
+.app {
+  height: 100%; display: flex; flex-direction: column;
+  max-width: 520px; margin: 0 auto; padding: 12px; gap: 10px;
+}
+
+.header {
+  text-align: center; padding: 10px 0 6px;
+}
+.header h1 { font-size: 18px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.header .sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+.status-bar {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; transition: background 0.3s; }
+.status-dot.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.status-text { font-size: 12px; color: var(--dim); flex: 1; }
+.status-text .pos { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.info-cards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; text-align: center;
+}
+.card .label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+.card .value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; color: var(--accent); }
+
+.dpad-area {
+  flex: 1; display: flex; align-items: center; justify-content: center; position: relative;
+  min-height: 0;
+}
+
+.dpad-container {
+  position: relative; width: 220px; height: 220px;
+}
+
+.dpad-btn {
+  position: absolute; width: 66px; height: 66px;
+  background: var(--card); border: 2px solid var(--border); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.1s; user-select: none;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.dpad-btn:active, .dpad-btn.active {
+  background: var(--accent); border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(74, 124, 255, 0.4);
+  transform: scale(0.92);
+}
+.dpad-btn svg { width: 24px; height: 24px; fill: var(--text); pointer-events: none; }
+.dpad-btn:active svg, .dpad-btn.active svg { fill: #fff; }
+
+.dpad-up    { top: 0;   left: 50%; transform: translateX(-50%); }
+.dpad-down  { bottom: 0; left: 50%; transform: translateX(-50%); }
+.dpad-left  { left: 0;  top: 50%; transform: translateY(-50%); }
+.dpad-right { right: 0; top: 50%; transform: translateY(-50%); }
+.dpad-up:active, .dpad-up.active { transform: translateX(-50%) scale(0.92); }
+.dpad-down:active, .dpad-down.active { transform: translateX(-50%) scale(0.92); }
+.dpad-left:active, .dpad-left.active { transform: translateY(-50%) scale(0.92); }
+.dpad-right:active, .dpad-right.active { transform: translateY(-50%) scale(0.92); }
+
+.dpad-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--panel); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--dim); font-weight: 600; letter-spacing: 0.5px;
+}
+
+.action-bar {
+  display: flex; gap: 8px; padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+.action-btn {
+  flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; user-select: none;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.action-btn:active { transform: scale(0.96); }
+.action-btn.stop { background: var(--red); border-color: var(--red); color: #fff; }
+.action-btn.stop:active { background: #cc3355; }
+.action-btn.pos { background: var(--green); border-color: var(--green); color: #000; }
+.action-btn.pos:active { background: #20b888; }
+.action-btn.quit { background: transparent; border-color: var(--red); color: var(--red); }
+.action-btn.quit:active { background: rgba(255,68,102,0.15); }
+
+.log-area {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 12px; max-height: 80px; overflow-y: auto; font-size: 11px;
+  font-family: 'Consolas', monospace; color: var(--dim); line-height: 1.6;
+}
+.log-area .log-line { white-space: nowrap; }
+.log-area .log-line .time { color: #555; }
+.log-area .log-line .cmd { color: var(--accent); }
+.log-area .log-line .res { color: var(--green); }
+.log-area .log-line .err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🎮 GameMaker C++ Controller</h1>
+    <div class="sub">HTTP API · localhost:18080</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <div class="status-text" id="statusText">检查连接中...</div>
+  </div>
+
+  <div class="info-cards">
+    <div class="card">
+      <div class="label">X 坐标</div>
+      <div class="value" id="posX">--</div>
+    </div>
+    <div class="card">
+      <div class="label">Y 坐标</div>
+      <div class="value" id="posY">--</div>
+    </div>
+  </div>
+
+  <div class="dpad-area">
+    <div class="dpad-container">
+      <div class="dpad-btn dpad-up" data-dir="up" id="btnUp">
+        <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
+      </div>
+      <div class="dpad-btn dpad-down" data-dir="down" id="btnDown">
+        <svg viewBox="0 0 24 24"><path d="M12 20l8-8h-5V4H9v8H4z"/></svg>
+      </div>
+      <div class="dpad-btn dpad-left" data-dir="left" id="btnLeft">
+        <svg viewBox="0 0 24 24"><path d="M4 12l8-8v5h8v6h-8v5z"/></svg>
+      </div>
+      <div class="dpad-btn dpad-right" data-dir="right" id="btnRight">
+        <svg viewBox="0 0 24 24"><path d="M20 12l-8 8v-5H4V9h8V4z"/></svg>
+      </div>
+      <div class="dpad-center">STOP</div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="action-btn stop" onclick="doStop()">⏹ 停止</button>
+    <button class="action-btn pos" onclick="doPos()">📍 位置</button>
+    <button class="action-btn quit" onclick="doQuit()">✕ 退出</button>
+  </div>
+
+  <div class="log-area" id="logArea"></div>
+</div>
+
+<script>
+const API = 'http://localhost:18080/api';
+const dirs = ['up','down','left','right'];
+const btnMap = { up: 'btnUp', down: 'btnDown', left: 'btnLeft', right: 'btnRight' };
+let connected = false;
+let posPolling = null;
+
+function log(cmd, res, isErr) {
+  const el = document.getElementById('logArea');
+  const now = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+  const cls = isErr ? 'err' : 'res';
+  el.innerHTML += `<div class="log-line"><span class="time">${now}</span> <span class="cmd">${cmd}</span> → <span class="${cls}">${res}</span></div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function api(cmd) {
+  try {
+    const r = await fetch(`${API}?cmd=${cmd}`, {signal: AbortSignal.timeout(3000)});
+    const t = await r.text();
+    log(cmd, t);
+    return t;
+  } catch(e) {
+    log(cmd, e.message, true);
+    return null;
+  }
+}
+
+async function checkStatus() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  const r = await api('help');
+  if (r && r.includes('Commands')) {
+    dot.classList.add('ok'); connected = true;
+    txt.innerHTML = '已连接 · <span class="pos">游戏运行中</span>';
+    startPosPoll();
+  } else {
+    dot.classList.remove('ok'); connected = false;
+    txt.innerHTML = '未连接 · 请先启动游戏并点击"运行"';
+    stopPosPoll();
+  }
+}
+
+function startPosPoll() {
+  stopPosPoll();
+  posPolling = setInterval(async () => {
+    const r = await api('pos');
+    if (r) {
+      const m = r.match(/pos:\s*([\-\d.]+),\s*([\-\d.]+)/);
+      if (m) {
+        document.getElementById('posX').textContent = parseFloat(m[1]).toFixed(0);
+        document.getElementById('posY').textContent = parseFloat(m[2]).toFixed(0);
+      }
+    }
+  }, 500);
+}
+function stopPosPoll() { if(posPolling) { clearInterval(posPolling); posPolling=null; } }
+
+function doStop() { api('stop'); }
+function doPos() { api('pos'); }
+function doQuit() { if(confirm('确定退出游戏？')) api('quit'); }
+
+// Touch/mouse handling for D-pad
+function setupBtn(id, dir) {
+  const el = document.getElementById(id);
+  
+  // Mouse
+  el.addEventListener('mousedown', (e) => { e.preventDefault(); press(dir); });
+  el.addEventListener('mouseup', (e) => { e.preventDefault(); release(dir); });
+  el.addEventListener('mouseleave', () => release(dir));
+  
+  // Touch
+  el.addEventListener('touchstart', (e) => { e.preventDefault(); press(dir); }, {passive:false});
+  el.addEventListener('touchend', (e) => { e.preventDefault(); release(dir); }, {passive:false});
+  el.addEventListener('touchcancel', () => release(dir));
+}
+
+const pressed = {};
+function press(dir) {
+  if (pressed[dir]) return;
+  pressed[dir] = true;
+  document.getElementById(btnMap[dir]).classList.add('active');
+  api(dir);
+}
+function release(dir) {
+  if (!pressed[dir]) return;
+  pressed[dir] = false;
+  document.getElementById(btnMap[dir]).classList.remove('active');
+  api('stop');
+}
+
+dirs.forEach(d => setupBtn(btnMap[d], d));
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+  const map = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+  const dir = map[e.key];
+  if (dir) { e.preventDefault(); press(dir); }
+  if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); doStop(); }
+});
+document.addEventListener('keyup', (e) => {
+  const map = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+  const dir = map[e.key];
+  if (dir) { e.preventDefault(); release(dir); }
+});
+
+// Center button = stop
+document.querySelector('.dpad-center').addEventListener('click', doStop);
+document.querySelector('.dpad-center').addEventListener('touchstart', (e) => { e.preventDefault(); doStop(); }, {passive:false});
+
+// Init
+checkStatus();
+setInterval(checkStatus, 5000);
+</script>
+</body>
+</html>
