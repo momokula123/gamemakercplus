@@ -242,17 +242,28 @@ function setupBtn(id, dir) {
 }
 
 const pressed = {};
-function press(dir) {
+function anyPressed() { return dirs.some(d => pressed[d]); }
+
+async function press(dir) {
   if (pressed[dir]) return;
   pressed[dir] = true;
   document.getElementById(btnMap[dir]).classList.add('active');
-  api(dir);
+  await api(dir);
 }
-function release(dir) {
+
+async function release(dir) {
   if (!pressed[dir]) return;
   pressed[dir] = false;
   document.getElementById(btnMap[dir]).classList.remove('active');
-  api('stop');
+  // Find remaining held direction
+  var remaining = dirs.filter(d => pressed[d]);
+  if (remaining.length > 0) {
+    // Another direction still held — stop then re-send it
+    await api('stop');
+    await api(remaining[remaining.length - 1]);
+  } else {
+    await api('stop');
+  }
 }
 
 dirs.forEach(d => setupBtn(btnMap[d], d));
