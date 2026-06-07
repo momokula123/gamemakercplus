@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 // HTTP API Server - reads NPCs from map->characters
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -7,7 +7,7 @@
 struct HttpApiState { SOCKET listenSock; bool running; HANDLE thread; };
 static HttpApiState g_httpApi = { INVALID_SOCKET, false, nullptr };
 
-static void sendHttpResponse(SOCKET client, const char* status, const char* contentType = "text/plain", const char* body = "", int bodyLen = -1) {
+static void sendHttpResponse(SOCKET client, const char* status, const char* contentType, const char* body, int bodyLen = -1) {
     if (bodyLen == -1) bodyLen = (int)strlen(body);
     char resp[4096];
     int n = snprintf(resp, sizeof(resp),
@@ -151,63 +151,9 @@ static DWORD WINAPI HttpApiThread(LPVOID) {
                 } else sendHttpResponse(cs, "400", "missing id");
             }
 
-            
-            // NPC scan - return 8x8 grid around NPC center
-            else if (strcmp(cmd, "npc_scan") == 0) {
-                int npcId = g_gameWnd->selectedNpcId;
-                char* ip = strstr(buf, "id=");
-                if (ip) npcId = atoi(ip + 3);
-                if (npcId < 0) { sendHttpResponse(cs, "400", "text/plain", "no NPC selected"); }
-                else {
-                    Character* npc = g_gameWnd->map->getCharacter(npcId);
-                    if (!npc) { sendHttpResponse(cs, "200 OK", "text/plain", "not found"); }
-                    else {
-                        int cx = (int)(npc->worldX / TileMap::TILE_SIZE);
-                        int cy = (int)(npc->worldY / TileMap::TILE_SIZE);
-                        int half = 4;
-                        int sx = cx - half, sy = cy - half;
-                        char resp[8192]; int off = 0;
-
-                        int npcCount = 0;
-                        for (auto& c : g_gameWnd->map->characters) {
-                            int tx = (int)(c.worldX / TileMap::TILE_SIZE);
-                            int ty = (int)(c.worldY / TileMap::TILE_SIZE);
-                            if (tx >= sx && tx < sx + 8 && ty >= sy && ty < sy + 8) npcCount++;
-                        }
-
-                        off += snprintf(resp + off, sizeof(resp) - off,
-                            "center=%d,%d range=%d,%d,%d,%d entities=%d\n",
-                            cx, cy, sx, sy, sx + 7, sy + 7, npcCount);
-
-                        // Terrain layer 0
-                        for (int r = 0; r < 8; r++) {
-                            for (int c = 0; c < 8; c++)
-                                off += snprintf(resp + off, sizeof(resp) - off, "%s%d", c ? "," : "",
-                                    g_gameWnd->map->getTile(0, sx + c, sy + r));
-                            off += snprintf(resp + off, sizeof(resp) - off, "\n");
-                        }
-                        // Object layer 2
-                        for (int r = 0; r < 8; r++) {
-                            for (int c = 0; c < 8; c++)
-                                off += snprintf(resp + off, sizeof(resp) - off, "%s%d", c ? "," : "",
-                                    g_gameWnd->map->getTile(2, sx + c, sy + r));
-                            off += snprintf(resp + off, sizeof(resp) - off, "\n");
-                        }
-                        // Entities
-                        for (auto& c : g_gameWnd->map->characters) {
-                            int tx = (int)(c.worldX / TileMap::TILE_SIZE);
-                            int ty = (int)(c.worldY / TileMap::TILE_SIZE);
-                            if (tx >= sx && tx < sx + 8 && ty >= sy && ty < sy + 8)
-                                off += snprintf(resp + off, sizeof(resp) - off, "entity=%d|%ls|%ls|%.0f,%.0f|hp=%d\n",
-                                    c.id, c.name.c_str(), c.type.c_str(), c.worldX, c.worldY, c.hp);
-                        }
-                        sendHttpResponse(cs, "200 OK", "text/plain", resp);
-                    }
-                }
-            }
-else if (strcmp(cmd, "quit") == 0) { PostMessage(hw, WM_KEYDOWN, VK_ESCAPE, 0); sendHttpResponse(cs, "200 OK", "quitting"); }
+            else if (strcmp(cmd, "quit") == 0) { PostMessage(hw, WM_KEYDOWN, VK_ESCAPE, 0); sendHttpResponse(cs, "200 OK", "quitting"); }
             else if (strcmp(cmd, "help") == 0) { sendHttpResponse(cs, "200 OK",
-                "Player: up|down|left|right|stop|pos|quit | NPC: npc_list|npc_select|npc_info|npc_scan|npc_up|npc_down|npc_left|npc_right|npc_stop"); }
+                "Player: up|down|left|right|stop|pos|quit | NPC: npc_list|npc_select|npc_info|npc_up|npc_down|npc_left|npc_right|npc_stop"); }
             else sendHttpResponse(cs, "400", "unknown cmd");
         } else sendHttpResponse(cs, "503", "game not running");
         closesocket(cs);
@@ -225,4 +171,3 @@ static void HttpApi_Stop() {
     g_httpApi.running = false;
     if (g_httpApi.thread) { WaitForSingleObject(g_httpApi.thread, 3000); CloseHandle(g_httpApi.thread); g_httpApi.thread = nullptr; }
 }
-
