@@ -2,7 +2,8 @@
 // NPC Controller PHP代理
 // 用于将请求转发到本地游戏服务器
 
-$gameServer = 'http://127.0.0.1:18080/api';
+// 修改为你的游戏服务器公网地址
+$gameServer = 'http://43.240.220.142:18080/api';
 
 // 获取请求的cmd参数
 $cmd = isset($_GET['cmd']) ? $_GET['cmd'] : '';
