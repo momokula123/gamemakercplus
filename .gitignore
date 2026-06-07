@@ -20,3 +20,5 @@ editor.db-wal
 *.swp
 *~
 .DS_Store
+
+netcontrol/

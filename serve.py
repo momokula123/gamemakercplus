@@ -1,6 +1,6 @@
 import http.server
 import os
-os.chdir(r'C:\Users\Administrator\Documents\gamma')
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 handler = http.server.SimpleHTTPRequestHandler
 server = http.server.HTTPServer(('127.0.0.1', 18081), handler)
 print('Serving on http://localhost:18081/')
