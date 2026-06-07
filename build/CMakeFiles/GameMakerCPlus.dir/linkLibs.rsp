@@ -1,0 +1,1 @@
+ libsqlite3.a -ld2d1 -ldwrite -lwindowscodecs -lole32 -loleaut32 -lgdi32 -luser32 -lkernel32 -lgdiplus -lwinhttp -lshell32 -lcomctl32 -lshlwapi -lws2_32 -lcrypt32 -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 

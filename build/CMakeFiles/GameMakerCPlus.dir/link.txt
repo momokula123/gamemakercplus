@@ -1,0 +1,3 @@
+"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\GameMakerCPlus.dir/objects.a
+C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.MCF.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin\ar.exe qc CMakeFiles\GameMakerCPlus.dir/objects.a @CMakeFiles\GameMakerCPlus.dir\objects1.rsp
+C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.MCF.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin\c++.exe -O3 -DNDEBUG -mwindows -mwindows -Wl,--whole-archive CMakeFiles\GameMakerCPlus.dir/objects.a -Wl,--no-whole-archive -o GameMakerCPlus.exe -Wl,--out-implib,libGameMakerCPlus.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\GameMakerCPlus.dir\linkLibs.rsp

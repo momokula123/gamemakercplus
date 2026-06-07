@@ -1,0 +1,4 @@
+C:/Users/Administrator/Documents/gamma/build/CMakeFiles/sqlite3.dir
+C:/Users/Administrator/Documents/gamma/build/CMakeFiles/GameMakerCPlus.dir
+C:/Users/Administrator/Documents/gamma/build/CMakeFiles/edit_cache.dir
+C:/Users/Administrator/Documents/gamma/build/CMakeFiles/rebuild_cache.dir

@@ -1,4 +1,4 @@
-#include "editor.h"
+﻿#include "editor.h"
 #include "renderer/d2d_renderer.h"
 #include "tile_generator.h"
 #include "api/api_pollinations.h"
@@ -6,6 +6,8 @@
 #include "api/api_screenshot.h"
 #include "util/image_utils.h"
 #include "map_serializer.h"
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windowsx.h>
 #include <commdlg.h>
 
@@ -1143,6 +1145,21 @@ void Editor::renderMenuBarD2D(D2DRenderer* r) {
                     DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
     }
 
+
+    // "+ NPC" button (next to menu buttons)
+    {
+        int npcBtnX = windowW - (NUM_MENU_BUTTONS + 1) * (MENU_BTN_W + MENU_BTN_GAP) - 8;
+        bool hovered = (lastMouseX >= npcBtnX && lastMouseX < npcBtnX + MENU_BTN_W &&
+                        lastMouseY >= row0Y && lastMouseY < row0Y + MENU_BTN_H);
+        r->fillRect((float)npcBtnX, (float)row0Y, (float)MENU_BTN_W, (float)MENU_BTN_H,
+                    hovered ? 0.6f : 0.5f, hovered ? 0.5f : 0.4f, 0.0f);
+        r->drawRect((float)npcBtnX, (float)row0Y, (float)MENU_BTN_W, (float)MENU_BTN_H,
+                    0.333f, 0.333f, 0.333f);
+        r->drawText(L"+ NPC", (float)npcBtnX, (float)row0Y,
+                    (float)MENU_BTN_W, (float)MENU_BTN_H,
+                    1.0f, 1.0f, 0.6f, 1.0f, 9.0f, false,
+                    DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    }
     // ---- Row 1: Layer buttons (horizontal tabs, full width) ----
     int row1Y = row0Y + TOOL_ICON_SIZE + 6;
     if (layers) {
@@ -1626,6 +1643,32 @@ void Editor::renderToolPaletteD2D(D2DRenderer* r) {
                         DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         }
 
+
+        // "Add NPC" button
+        {
+            int btnY = charSectionY + 52;
+            bool hovered = gui.panelHovered &&
+                           (lastMouseX >= TILE_BTN_X && lastMouseX < TILE_BTN_X + TILE_BTN_W &&
+                            lastMouseY >= btnY && lastMouseY < btnY + 22);
+            if (hovered) {
+                r->fillRect((float)TILE_BTN_X, (float)btnY,
+                            (float)TILE_BTN_W, 22.0f,
+                            0.6f, 0.5f, 0.0f);
+            } else {
+                r->fillRect((float)TILE_BTN_X, (float)btnY,
+                            (float)TILE_BTN_W, 22.0f,
+                            0.5f, 0.4f, 0.0f);
+            }
+            r->drawRect((float)TILE_BTN_X, (float)btnY,
+                        (float)TILE_BTN_W, 22.0f,
+                        0.333f, 0.333f, 0.333f);
+            r->drawText(L"+ \u6dfb\u52a0NPC",
+                        (float)TILE_BTN_X, (float)btnY,
+                        (float)TILE_BTN_W, 22.0f,
+                        1.0f, 1.0f, 0.6f, 1.0f, 9.0f, false,
+                        DWRITE_TEXT_ALIGNMENT_CENTER,
+                        DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        }
         // Sprite info for selected character
         if (map && selectedCharacterIdx >= 0 && selectedCharacterIdx < (int)map->characters.size()) {
             auto& ch = map->characters[selectedCharacterIdx];
@@ -1940,6 +1983,25 @@ void Editor::onMouseDown(int x, int y, bool left) {
                 return;
             }
         }
+
+        // "+ NPC" button click
+        {
+            int npcBtnX = windowW - (NUM_MENU_BUTTONS + 1) * (MENU_BTN_W + MENU_BTN_GAP) - 8;
+            if (x >= npcBtnX && x < npcBtnX + MENU_BTN_W &&
+                y >= row0Y && y < row0Y + MENU_BTN_H) {
+                if (map) {
+                    float spawnX = camera.x + (float)windowW / (2.0f * camera.zoom);
+                    float spawnY = camera.y + (float)(windowH - STATUS_BAR_H) / (2.0f * camera.zoom);
+                    wchar_t npcName[32];
+                    _snwprintf(npcName, 32, L"NPC_%d", (int)map->characters.size());
+                    int newId = map->createCharacter(npcName, L"npc", spawnX, spawnY, 0);
+                    selectedCharacterIdx = (int)map->characters.size() - 1;
+                    if (d2d) map->convertCharacterSpritesToD2D(d2d);
+                    snprintf(gui.statusText, sizeof(gui.statusText), "NPC created: id=%d", newId);
+                }
+                return;
+            }
+        }
         // Clicked row 0 but hit nothing - consume
         return;
     }
@@ -2080,6 +2142,46 @@ void Editor::onMouseDown(int x, int y, bool left) {
                 return;
             }
             return;
+        }
+    }
+
+
+    // --- Character section: list click + Add NPC button ---
+    {
+        int numTiles = tileCount();
+        int visibleTiles = numTiles - 1 - tileScrollOffset;
+        int charSectionY = TILE_START_Y + visibleTiles * (TILE_BTN_H + TILE_BTN_GAP) + 100;
+        charSectionY += 20; // after label
+
+        // Character list click
+        if (map) {
+            int maxChars = std::min((int)map->characters.size(), 4);
+            for (int i = 0; i < maxChars; i++) {
+                int cy = charSectionY + i * 22;
+                if (x >= TILE_BTN_X && x < TILE_BTN_X + TILE_BTN_W && y >= cy && y < cy + 20) {
+                    selectedCharacterIdx = i;
+                    return;
+                }
+            }
+            charSectionY += maxChars * 22;
+        }
+
+        // "Add NPC" button click (charSectionY + 52)
+        {
+            int btnY = charSectionY + 52;
+            if (x >= TILE_BTN_X && x < TILE_BTN_X + TILE_BTN_W && y >= btnY && y < btnY + 22) {
+                if (map) {
+                    float spawnX = camera.x + (float)windowW / (2.0f * camera.zoom);
+                    float spawnY = camera.y + (float)windowH / (2.0f * camera.zoom);
+                    wchar_t npcName[32];
+                    _snwprintf(npcName, 32, L"NPC_%d", (int)map->characters.size());
+                    int newId = map->createCharacter(npcName, L"npc", spawnX, spawnY, 0);
+                    selectedCharacterIdx = (int)map->characters.size() - 1;
+                    if (d2d) map->convertCharacterSpritesToD2D(d2d);
+                    snprintf(gui.statusText, sizeof(gui.statusText), "NPC created: id=%d", newId);
+                }
+                return;
+            }
         }
     }
 
@@ -2735,6 +2837,7 @@ void Editor::loadMap(const char* path) {
 // Run Game Window
 // ---------------------------------------------------------------------------
 
+
 // Game window state
 struct GameWindowState {
     HWND hwnd = nullptr;
@@ -2749,6 +2852,15 @@ struct GameWindowState {
     LARGE_INTEGER freq;
     std::unordered_map<uint8_t, ID2D1Bitmap*> gameTextures; // separate D2D textures for game window
     std::unordered_map<int, ID2D1Bitmap*> gameCharSprites;  // charId -> D2D sprite sheet for game window
+
+    // Selected NPC for API control
+    int selectedNpcId = -1;
+
+    // NPC API direction flags
+    volatile bool apiNpcUp = false;
+    volatile bool apiNpcDown = false;
+    volatile bool apiNpcLeft = false;
+    volatile bool apiNpcRight = false;
 };
 
 static GameWindowState* g_gameWnd = nullptr;
@@ -2815,6 +2927,8 @@ void Editor::initTileTextures() {
         }
     }
 }
+
+#include "http_api.h"
 
 void Editor::runGame() {
     if (g_gameWnd && g_gameWnd->hwnd && IsWindow(g_gameWnd->hwnd)) {
@@ -2935,6 +3049,8 @@ void Editor::runGame() {
     ShowWindow(g_gameWnd->hwnd, SW_SHOW);
     UpdateWindow(g_gameWnd->hwnd);
 
+    HttpApi_Start();
+
     snprintf(gui.statusText, sizeof(gui.statusText), "\u6e38\u620f\u5df2\u542f\u52a8 (WASD\u79fb\u52a8, ESC\u9000\u51fa)");
 
     // Game loop
@@ -3039,6 +3155,34 @@ void Editor::runGame() {
             }
         }
 
+
+
+        // NPC movement (API-driven: move selected Character directly)
+        {
+            Character* npc = nullptr;
+            for (auto& c : map->characters) {
+                if (c.id == g_gameWnd->selectedNpcId) { npc = &c; break; }
+            }
+            if (npc) {
+                float ndx = 0, ndy = 0;
+                if (g_gameWnd->apiNpcUp) ndy -= 1;
+                if (g_gameWnd->apiNpcDown) ndy += 1;
+                if (g_gameWnd->apiNpcLeft) ndx -= 1;
+                if (g_gameWnd->apiNpcRight) ndx += 1;
+                if (ndx != 0 || ndy != 0) {
+                    float len = sqrtf(ndx*ndx + ndy*ndy); ndx /= len; ndy /= len;
+                    float spd = g_gameWnd->playerSpeed;
+                    float nx = npc->worldX + ndx * spd * (float)dt;
+                    float ny = npc->worldY + ndy * spd * (float)dt;
+                    if (fabsf(ndy) >= fabsf(ndx)) npc->facingDir = (ndy > 0) ? 0 : 3;
+                    else npc->facingDir = (ndx < 0) ? 1 : 2;
+                    float maxR = 24.0f;
+                    if (nx > maxR && nx < map->width * TileMap::TILE_SIZE - maxR) npc->worldX = nx;
+                    if (ny > maxR && ny < map->height * TileMap::TILE_SIZE - maxR) npc->worldY = ny;
+                }
+            }
+        }
+
         // Camera follows player (centered on player position)
         {
             float gameW = 1280.0f;
@@ -3114,6 +3258,22 @@ void Editor::runGame() {
                                           1.0f, 1.0f, 0.8f, 0.9f, 2.0f);
             }
 
+
+            // Render non-player characters (npc/enemy)
+            for (auto& c : map->characters) {
+                if (c.type == L"player") continue;
+                float ts = TileMap::TILE_SIZE * g_gameWnd->camera.zoom;
+                float px, py;
+                g_gameWnd->camera.worldToScreen(c.worldX - TileMap::TILE_SIZE/2, c.worldY - TileMap::TILE_SIZE/2, px, py);
+                float cr = (c.type == L"enemy") ? 1.0f : 0.2f;
+                float cg = (c.type == L"enemy") ? 0.3f : 1.0f;
+                float cb = (c.type == L"enemy") ? 0.3f : 0.4f;
+                bool sel = (c.id == g_gameWnd->selectedNpcId);
+                g_gameWnd->d2d->fillEllipse(px+ts/2, py+ts/2, ts/2, ts/2, cr, cg, cb, sel ? 1.0f : 0.7f);
+                g_gameWnd->d2d->drawEllipse(px+ts/2, py+ts/2, ts/2, ts/2, sel?1.0f:0.6f, sel?1.0f:0.6f, sel?1.0f:0.6f, 0.9f, sel?3.0f:1.5f);
+            }
+
+
             // HUD - bottom status bar (not overlapping game world)
             {
                 float barH = 28.0f;
@@ -3141,6 +3301,8 @@ void Editor::runGame() {
 
         Sleep(1);
     }
+
+    HttpApi_Stop();
 
     // Cleanup game textures
     for (auto& kv : g_gameWnd->gameTextures) {
